@@ -331,6 +331,7 @@ okrug %>% filter(cluster == 1) %>%
   ) %>% 
   addPolylines(~lng, ~lat)
 
+# Більш обгрунтований підхід з врахуванням доріг
 r <- POST('https://api.openrouteservice.org/v2/matrix/driving-car',
           body = list(locations = okrug %>% select(lng, lat) %>% data.matrix),
           encode = 'json',
