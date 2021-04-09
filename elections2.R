@@ -105,6 +105,8 @@ propResults2019 <- propResults2019[propResults2019$district_no != 226, ]
 
 propProtocols2019$special <- !grepl('^([см]\\.|смт|с-ще)', propProtocols2019$precinct_desc)
 majorProtocols2019$special <- !grepl('^([см]\\.|смт|с-ще)', majorProtocols2019$precinct_desc)
+propProtocols2019$city <- grepl('^м\\.', propProtocols2019$precinct_desc)
+propProtocols2019$precinct_desc[!propProtocols2019$city & propProtocols2019$region == 'м. Київ']
 propProtocols2019$precinct_desc <- NULL
 majorProtocols2019$precinct_desc <- NULL
 propResults2019$precinct_no <- NULL
@@ -177,7 +179,7 @@ okrug <- propResults %>%
 keys <- unique(okrug$key)
 
 s = 5
-sample_size = 60
+sample_size = 30
 
 actual <- okrug %>%
   group_by(party) %>%
@@ -202,6 +204,32 @@ makeEstimate <- function(s, sample_size) {
 
 estimates <- replicate(100, makeEstimate(s, sample_size))
 hist(estimates)
+
+### Побудова квотної ступеневої вибірки для всеукраїнського дослідження
+
+cityPS <- 5
+ruralPS <- 3
+sampleSize <- 2000
+
+randomPolling <- propProtocols2019 %>%
+  filter(!special) %>%
+  group_by(region, city) %>%
+  summarize(key = sample(key, size = if (city) cityPS else ruralPS, replace = F))
+
+total <- sum(propProtocols2019$voters_amount)
+a <- propProtocols2019 %>%
+  group_by(region) %>%
+  mutate(
+    regionSample = ceiling(sampleSize * sum(voters_amount) / total),
+    regionVoters = sum(voters_amount)) %>%
+  group_by(region, city) %>%
+  mutate(cityProbability = sum(voters_amount)/regionVoters) %>%
+  filter(key %in% randomPolling$key) %>%
+  group_by(region, city) %>%
+  mutate(prob = prop.table((voters_amount))) %>%
+  summarize(key = sample(key, size = cityProbability * regionSample, replace = T, prob = prob)) %>%
+  group_by(key) %>%
+  summarize(n = n())
 
 ### Побудова вибірки для соціологічного дослідження в рамках округу
 
